@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>721 Shop — Admin panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0D; --surface:#15151A; --surface-2:#1C1C22; --line:#272730;
+    --text:#F3F1EA; --muted:#8A8A93; --gold:#E3B94E; --gold-dim:#4A3D1F; --danger:#FF6B6B; --ok:#5FD68A;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;}
+  h1,h2{font-family:'Sora',sans-serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .wrap{max-width:960px; margin:0 auto; padding:20px 20px 60px;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:20px;}
+  h1{font-size:20px; margin:0 0 4px;}
+  h2{font-size:16px; margin:0 0 14px; display:flex; align-items:center; gap:8px;}
+  .bar{width:4px; height:16px; background:var(--gold); border-radius:3px; display:inline-block;}
+  input, select{
+    background:var(--surface-2); border:1px solid var(--line); border-radius:10px; color:var(--text);
+    padding:9px 12px; font-size:13.5px; font-family:'Inter',sans-serif;
+  }
+  button{
+    background:var(--gold); color:#0A0A0D; border:none; border-radius:10px; padding:9px 16px;
+    font-weight:700; font-size:13.5px; cursor:pointer; font-family:'Sora',sans-serif;
+  }
+  button.ghost{background:var(--surface-2); color:var(--text); border:1px solid var(--line);}
+  button.danger{background:var(--danger); color:#fff;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{text-align:left; color:var(--muted); font-weight:600; padding:8px; border-bottom:1px solid var(--line); font-size:11px; text-transform:uppercase;}
+  td{padding:8px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  .row-actions{display:flex; gap:6px;}
+  .add-form{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center;}
+  .badge{background:var(--gold-dim); color:var(--gold); padding:2px 8px; border-radius:10px; font-size:11px;}
+  .empty{color:var(--muted); font-size:13px; padding:14px 0;}
+  .toast{
+    position:fixed; top:16px; right:16px; background:var(--surface-2); border:1px solid var(--gold);
+    padding:10px 16px; border-radius:10px; font-size:13px; display:none; z-index:99; max-width:80vw;
+  }
+  .gate{max-width:360px; margin:80px auto; text-align:center; padding:20px;}
+  .gate input{width:100%; margin-bottom:10px; text-align:center; box-sizing:border-box;}
+  .gate button{width:100%;}
+
+  /* ---------- top header ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:20; background:rgba(10,10,13,0.96); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line); padding:16px 20px 0;
+  }
+  .topbar-inner{max-width:960px; margin:0 auto;}
+  .topbar h1{margin-bottom:2px;}
+  .topbar .sub{color:var(--muted); font-size:12px; margin-bottom:14px;}
+
+  /* ---------- tabs ---------- */
+  .tabs{display:flex; gap:6px; overflow-x:auto; padding-bottom:12px; scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab-btn{
+    flex:0 0 auto; background:var(--surface); border:1px solid var(--line); color:var(--muted);
+    padding:9px 15px; border-radius:20px; font-size:12.5px; font-weight:600; cursor:pointer;
+    white-space:nowrap; font-family:'Inter',sans-serif; transition:all .15s ease;
+  }
+  .tab-btn.active{background:var(--gold); color:#0A0A0D; border-color:var(--gold);}
+  .tab-btn .count{opacity:0.7; margin-left:4px;}
+
+  .admin-section{display:none;}
+  .admin-section.active{display:block;}
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate card">
+  <h1>721 Shop — Admin</h1>
+  <p style="color:var(--muted); font-size:13px;">Telegram ID'ingizni kiriting (ADMIN_TG_IDS ro'yxatida bo'lishi kerak)</p>
+  <input id="adminIdInput" placeholder="Masalan: 1056541026" class="mono">
+  <button onclick="login()">Kirish</button>
+  <p id="gateError" style="color:var(--danger); font-size:12px; margin-top:8px;"></p>
+</div>
+
+<div id="panel" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <h1>721 Shop — Admin panel</h1>
+      <div class="sub">Backend: <span id="apiBaseLabel" class="mono"></span></div>
+      <div class="tabs" id="tabsBar"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <!-- ============ FOYDALANUVCHILAR ============ -->
+    <div class="admin-section" id="section-users">
+      <div class="card">
+        <h2><span class="bar"></span>Foydalanuvchilar va balans</h2>
+        <div class="add-form" style="margin-top:0; margin-bottom:14px;">
+          <input id="userSearch" placeholder="Username, ism yoki Telegram ID bo'yicha qidirish" style="flex:1; min-width:220px;">
+          <button onclick="loadUsers()">Qidirish</button>
+        </div>
+        <div id="usersList"></div>
+      </div>
+    </div>
+
+    <!-- ============ TO'LOVLAR ============ -->
+    <div class="admin-section" id="section-payments">
+      <div class="card">
+        <h2><span class="bar"></span>Hisob to'ldirish so'rovlari</h2>
+        <div id="topupList"></div>
+      </div>
+      <div class="card">
+        <h2><span class="bar"></span>Qo'lda yetkaziladigan buyurtmalar (Telegram Premium/Stars)</h2>
+        <div id="manualOrdersList"></div>
+      </div>
+    </div>
+
+    <!-- ============ HAR BIR O'YIN UCHUN (dinamik) ============ -->
+    <div id="gameSections"></div>
+
+    <!-- ============ 721 PREMIUM ============ -->
+    <div class="admin-section" id="section-premium">
+      <div class="card">
+        <h2><span class="bar"></span>721 Premium — obuna rejalari</h2>
+        <div id="premiumPlansList"></div>
+        <div class="add-form">
+          <input id="newPlanDays" type="number" placeholder="Muddat (kun, masalan 30)">
+          <input id="newPlanPrice" type="number" placeholder="Narx (so'm)">
+          <input id="newPlanBadge" placeholder="Belgi (ixtiyoriy)">
+          <button onclick="addPlan()">＋ Qo'shish</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2><span class="bar"></span>721 Premium — chegirma foizi</h2>
+        <p style="color:var(--muted); font-size:12.5px; margin:0 0 12px;">
+          Premium a'zolar barcha o'yin narxlarida shu foizda chegirma oladi.
+        </p>
+        <div class="add-form" style="margin-top:0;">
+          <input id="discountPercent" type="number" placeholder="Masalan 10" style="width:100px;">
+          <span style="color:var(--muted);">%</span>
+          <button onclick="saveDiscount()">Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SOZLAMALAR ============ -->
+    <div class="admin-section" id="section-settings">
+      <div class="card">
+        <h2><span class="bar"></span>Narx sozlamalari (avtomatik)</h2>
+        <p style="color:var(--muted); font-size:12.5px; margin:0 0 12px;">
+          MooGold'dagi joriy narx (USD) × Dollar kursi + sizning foyda qoidangiz = sotish narxi.
+          Faqat Mahsulot ID kiritilgan mahsulotlar yangilanadi.
+        </p>
+        <div class="add-form" style="margin-top:0;">
+          <input id="usdRate" type="number" placeholder="Dollar kursi (masalan 12600)" style="width:180px;">
+          <select id="markupType" onchange="onMarkupTypeChange()" style="width:150px;">
+            <option value="tiered">Bosqichli summa</option>
+            <option value="percent">Foiz (%)</option>
+          </select>
+          <input id="markupPercent" type="number" placeholder="Foiz (masalan 10)" style="width:120px;">
+        </div>
+
+        <div id="tiersSection" style="margin-top:14px;">
+          <div style="font-size:12.5px; color:var(--muted); margin-bottom:8px;">
+            Bosqichlar (tannarx shu chegaragacha bo'lsa, shuncha qo'shiladi):
+          </div>
+          <div id="tiersList"></div>
+          <button class="ghost" style="margin-top:8px;" onclick="addTierRow()">＋ Bosqich qo'shish</button>
+        </div>
+
+        <button style="margin-top:16px; width:100%;" onclick="savePricingConfig()">Sozlamani saqlash</button>
+        <button style="margin-top:8px; width:100%;" onclick="syncPrices()">🔄 Barcha narxlarni yangilash</button>
+        <pre id="syncResult" class="mono" style="white-space:pre-wrap; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:12px; margin-top:12px; max-height:300px; overflow:auto; font-size:11.5px; display:none;"></pre>
+      </div>
+
+      <div class="card">
+        <h2><span class="bar"></span>MooGold — Mahsulot ID'larni topish</h2>
+        <p style="color:var(--muted); font-size:12.5px; margin:0 0 12px;">
+          1) Category ID bilan o'yinlar ro'yxatini oling. 2) O'yin ID'sini (masalan Mobile
+          Legends uchun 15145) "Mahsulot ID" maydoniga qo'yib, ichidagi paketlarni va narxini ko'ring.
+        </p>
+        <div class="add-form" style="margin-top:0;">
+          <input id="categoryId" placeholder="Category ID (masalan 50)" value="50">
+          <button onclick="loadMoogoldProducts()">O'yinlar ro'yxati</button>
+        </div>
+        <div class="add-form">
+          <input id="productIdSearch" placeholder="O'yin ID (masalan 15145)">
+          <button onclick="loadMoogoldProductDetail()">Paketlarni ko'rish</button>
+        </div>
+        <pre id="moogoldResult" class="mono" style="white-space:pre-wrap; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:12px; margin-top:12px; max-height:400px; overflow:auto; font-size:12px;"></pre>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = 'https://721-shop-production.up.railway.app/api';
+let adminId = localStorage.getItem('adminTgId') || '';
+let currentTiers = [];
+let gamesCache = [];
+
+function login(){
+  const val = document.getElementById('adminIdInput').value.trim();
+  if(!val){ return; }
+  adminId = val;
+  localStorage.setItem('adminTgId', val);
+  init();
+}
+
+function headers(){
+  return { 'Content-Type':'application/json', 'x-admin-tg-id': adminId };
+}
+
+async function init(){
+  document.getElementById('apiBaseLabel').textContent = API_BASE;
+  try{
+    await loadProducts(); // shu ichida tab'lar ham quriladi
+    await loadTopups();
+    await loadManualOrders();
+    await loadUsers();
+    await loadPlans();
+    await loadDiscount();
+    await loadPricingConfig();
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('panel').style.display = 'block';
+    switchTab('users');
+  }catch(e){
+    document.getElementById('gateError').textContent = '⚠️ Kirish rad etildi yoki server javob bermadi. ID to\'g\'riligini tekshiring.';
+  }
+}
+
+// ---- TAB NAVIGATSIYASI ----
+
+function buildTabs(){
+  const bar = document.getElementById('tabsBar');
+  let html = `
+    <button class="tab-btn" data-tab="users" onclick="switchTab('users')">👤 Foydalanuvchilar</button>
+    <button class="tab-btn" data-tab="payments" onclick="switchTab('payments')">💳 To'lovlar</button>
+  `;
+  gamesCache.forEach(g=>{
+    html += `<button class="tab-btn" data-tab="game-${g.key}" onclick="switchTab('game-${g.key}')">${g.icon||''} ${g.name}</button>`;
+  });
+  html += `
+    <button class="tab-btn" data-tab="premium" onclick="switchTab('premium')">👑 Premium</button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">⚙️ Sozlamalar</button>
+  `;
+  bar.innerHTML = html;
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
+  const target = document.getElementById(`section-${tab}`);
+  if(target) target.classList.add('active');
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+// ---- FOYDALANUVCHILAR ----
+
+async function loadUsers(){
+  const search = document.getElementById('userSearch').value;
+  const res = await fetch(`${API_BASE}/admin/users?search=${encodeURIComponent(search)}`, { headers: headers() });
+  if(!res.ok) throw new Error('auth');
+  const users = await res.json();
+  const box = document.getElementById('usersList');
+  if(!users.length){ box.innerHTML = '<p class="empty">Foydalanuvchi topilmadi</p>'; return; }
+  box.innerHTML = `<table><tr><th>Foydalanuvchi</th><th>Balans</th><th>Miqdor (+/-)</th><th>Sabab</th><th></th></tr>${
+    users.map(u=>`
+      <tr>
+        <td>${u.full_name||'—'} <span class="mono" style="color:var(--muted)">@${u.username||'—'} (${u.tg_id})</span></td>
+        <td class="mono">${u.balance.toLocaleString()} so'm</td>
+        <td><input type="number" id="delta-${u.id}" placeholder="masalan -5000" style="width:130px;"></td>
+        <td><input id="reason-${u.id}" placeholder="ixtiyoriy" style="width:110px;"></td>
+        <td class="row-actions">
+          <button onclick="adjustBalance(${u.id},this)">Qo'llash</button>
+        </td>
+      </tr>`).join('')
+  }</table>`;
+}
+
+async function adjustBalance(userId, btn){
+  const delta = Number(document.getElementById(`delta-${userId}`).value);
+  const reason = document.getElementById(`reason-${userId}`).value;
+  if(!delta){ showToast('⚠️ Miqdorni kiriting (masalan 10000 yoki -5000)'); return; }
+
+  if(btn.dataset.confirm !== '1'){
+    btn.dataset.confirm = '1';
+    btn.textContent = 'Ishonchmi?';
+    setTimeout(()=>{ if(btn.dataset.confirm==='1'){ btn.dataset.confirm=''; btn.textContent='Qo\'llash'; } }, 3000);
+    return;
+  }
+  btn.dataset.confirm = '';
+  btn.textContent = 'Qo\'llash';
+
+  const res = await fetch(`${API_BASE}/admin/users/${userId}/adjust-balance`, {
+    method:'POST', headers: headers(), body: JSON.stringify({ delta, reason })
+  });
+  const data = await res.json();
+  if(!res.ok){ showToast('⚠️ '+data.error); return; }
+  showToast('✅ Balans yangilandi: '+data.balance.toLocaleString()+" so'm");
+  loadUsers();
+}
+
+// ---- TO'LOVLAR ----
+
+async function loadTopups(){
+  const res = await fetch(`${API_BASE}/admin/topup-requests`, { headers: headers() });
+  if(!res.ok) throw new Error('auth');
+  const items = await res.json();
+  const box = document.getElementById('topupList');
+  if(!items.length){ box.innerHTML = '<p class="empty">Hozircha kutilayotgan so\'rov yo\'q</p>'; return; }
+  box.innerHTML = `<table><tr><th>Chek</th><th>Foydalanuvchi</th><th>Summa</th><th>Vaqt</th><th></th></tr>${
+    items.map(r=>`
+      <tr>
+        <td>${r.receipt_base64
+          ? `<img src="${r.receipt_base64}" style="width:52px; height:52px; object-fit:cover; border-radius:8px; cursor:pointer; border:1px solid var(--line);" onclick="showReceipt('${r.receipt_base64.replace(/'/g,"\\'")}')">`
+          : '<span style="color:var(--muted); font-size:11px;">—</span>'}</td>
+        <td>@${r.username || '—'} <span class="mono" style="color:var(--muted)">(${r.tg_id})</span></td>
+        <td class="mono">${r.amount.toLocaleString()} so'm</td>
+        <td style="color:var(--muted)">${r.created_at}</td>
+        <td class="row-actions">
+          <button onclick="resolveTopup(${r.id},'approve')">✅</button>
+          <button class="danger" onclick="resolveTopup(${r.id},'reject')">❌</button>
+        </td>
+      </tr>`).join('')
+  }</table>`;
+}
+
+function showReceipt(src){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; display:flex; align-items:center; justify-content:center; padding:20px;';
+  overlay.onclick = () => overlay.remove();
+  overlay.innerHTML = `<img src="${src}" style="max-width:100%; max-height:100%; border-radius:12px;">`;
+  document.body.appendChild(overlay);
+}
+
+async function resolveTopup(id, action){
+  const res = await fetch(`${API_BASE}/admin/topup-requests/${id}/${action}`, { method:'POST', headers: headers() });
+  const data = await res.json();
+  if(!res.ok){ showToast('⚠️ '+data.error); return; }
+  showToast(action==='approve' ? '✅ Tasdiqlandi' : '❌ Rad etildi');
+  loadTopups();
+}
+
+async function loadManualOrders(){
+  const res = await fetch(`${API_BASE}/admin/manual-orders`, { headers: headers() });
+  if(!res.ok) throw new Error('auth');
+  const items = await res.json();
+  const box = document.getElementById('manualOrdersList');
+  if(!items.length){ box.innerHTML = '<p class="empty">Hozircha kutilayotgan buyurtma yo\'q</p>'; return; }
+  box.innerHTML = `<table><tr><th>Xizmat</th><th>Foydalanuvchi/Username</th><th>Xaridor</th><th>Narx</th><th></th></tr>${
+    items.map(o=>`
+      <tr>
+        <td>${o.icon||''} ${o.game_name}</td>
+        <td class="mono">${o.player_id}</td>
+        <td>@${o.username || '—'} <span class="mono" style="color:var(--muted)">(${o.tg_id})</span></td>
+        <td class="mono">${o.price.toLocaleString()} so'm</td>
+        <td class="row-actions">
+          <button onclick="resolveManualOrder(${o.id},'deliver')">✅</button>
+          <button class="danger" onclick="resolveManualOrder(${o.id},'fail')">❌</button>
+        </td>
+      </tr>`).join('')
+  }</table>`;
+}
+
+async function resolveManualOrder(id, action){
+  const res = await fetch(`${API_BASE}/admin/manual-orders/${id}/${action}`, { method:'POST', headers: headers() });
+  const data = await res.json();
+  if(!res.ok){ showToast('⚠️ '+data.error); return; }
+  showToast(action==='deliver' ? '✅ Yetkazildi' : '❌ Bekor qilindi (pul qaytarildi)');
+  loadManualOrders();
+}
+
+// ---- HAR BIR O'YIN UCHUN MAHSULOTLAR ----
+
+async function loadProducts(){
+  const res = await fetch(`${API_BASE}/admin/products`, { headers: headers() });
+  if(!res.ok) throw new Error('auth');
+  gamesCache = await res.json();
+  buildTabs();
+  buildGameSections();
+}
+
+function buildGameSections(){
+  const container = document.getElementById('gameSections');
+  container.innerHTML = gamesCache.map(g => `
+    <div class="admin-section" id="section-game-${g.key}">
+      <div class="card">
+        <h2><span class="bar"></span>${g.icon||''} ${g.name}</h2>
+        <div id="productsList-${g.key}"></div>
+
+        <div class="add-form">
+          <input id="newName-${g.key}" placeholder="Mahsulot nomi (masalan 56 Diamond)" style="flex:1; min-width:200px;">
+        </div>
+        <div class="add-form">
+          <input id="newVariationId-${g.key}" type="number" placeholder="Mahsulot ID (MooGold variation ID)" style="width:220px;">
+          <input id="newPrice-${g.key}" type="number" placeholder="Narx (so'm, foydalanuvchiga ko'rinadi)" style="width:220px;">
+        </div>
+        <div class="add-form">
+          <input id="newAmount-${g.key}" type="number" placeholder="Miqdor (ixtiyoriy, masalan 56)" style="width:150px;">
+          <input id="newGameId-${g.key}" type="number" placeholder="MooGold o'yin ID (ixtiyoriy)" style="width:170px;">
+          <input id="newBadge-${g.key}" placeholder="Belgi (ixtiyoriy)" style="width:130px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted);">
+            <input type="checkbox" id="newSpecial-${g.key}" style="width:auto;"> Maxsus (Pass va h.k.)
+          </label>
+          <button onclick="addPackage('${g.key}')">＋ Qo'shish</button>
+        </div>
+        <p style="color:var(--muted); font-size:11.5px; margin:8px 0 0;">
+          Mahsulot ID va MooGold o'yin ID kiritsangiz, bu mahsulot "Sozlamalar" bo'limidagi
+          "Narxlarni yangilash" tugmasi orqali avtomatik narxlanadi.
+        </p>
+      </div>
+    </div>
+  `).join('');
+
+  gamesCache.forEach(g => renderProductsTable(g));
+}
+
+function renderProductsTable(g){
+  const box = document.getElementById(`productsList-${g.key}`);
+  if(!box) return;
+  if(!g.packages.length){ box.innerHTML = '<p class="empty">Hali mahsulot qo\'shilmagan</p>'; return; }
+  box.innerHTML = `<table><tr>
+      <th>Mahsulot nomi</th><th>Mahsulot ID</th><th>Narx (so'm)</th><th>Holat</th><th></th>
+    </tr>${
+    g.packages.map(p=>`
+      <tr>
+        <td><input value="${p.name||''}" id="name-${p.id}" placeholder="Nomi" style="width:100%; min-width:140px;" onchange="updatePackage(${p.id},'${g.key}')"></td>
+        <td><input class="mono" value="${p.moogold_variation_id||''}" id="varid-${p.id}" placeholder="—" style="width:110px;" onchange="updatePackage(${p.id},'${g.key}')"></td>
+        <td><input class="mono" value="${p.price}" id="price-${p.id}" style="width:110px;" onchange="updatePackage(${p.id},'${g.key}')"></td>
+        <td>${p.active ? '<span class="badge">Faol</span>' : '<span style="color:var(--muted);">O\'chirilgan</span>'}</td>
+        <td class="row-actions">
+          <button class="ghost" onclick="toggleActive(${p.id},${p.active?0:1},'${g.key}')">${p.active?'O\'chir':'Yoq'}</button>
+          <button class="danger" onclick="deletePackage(${p.id},'${g.key}',this)">✕</button>
+        </td>
+      </tr>`).join('')
+  }</table>`;
+}
+
+async function addPackage(gameKey){
+  const name = document.getElementById(`newName-${gameKey}`).value.trim();
+  const moogold_variation_id = document.getElementById(`newVariationId-${gameKey}`).value || null;
+  const price = Number(document.getElementById(`newPrice-${gameKey}`).value);
+  const amount = Number(document.getElementById(`newAmount-${gameKey}`).value) || 0;
+  const moogold_product_id = document.getElementById(`newGameId-${gameKey}`).value || null;
+  const badge = document.getElementById(`newBadge-${gameKey}`).value;
+  const is_special = document.getElementById(`newSpecial-${gameKey}`).checked;
+
+  if(!name || !price){ showToast('⚠️ Mahsulot nomi va narxni kiriting'); return; }
+
+  const res = await fetch(`${API_BASE}/admin/products`, {
+    method:'POST', headers: headers(),
+    body: JSON.stringify({ game_key: gameKey, name, amount, price, badge, moogold_product_id, moogold_variation_id, is_special })
+  });
+  const data = await res.json();
+  if(!res.ok){ showToast('⚠️ '+data.error); return; }
+  showToast('✅ Mahsulot qo\'shildi');
+  ['newName','newVariationId','newPrice','newAmount','newGameId','newBadge'].forEach(id=>{
+    const el = document.getElementById(`${id}-${gameKey}`);
+    if(el) el.value='';
+  });
+  document.getElementById(`newSpecial-${gameKey}`).checked = false;
+  await loadProducts();
+  switchTab(`game-${gameKey}`);
+}
+
+async function updatePackage(id, gameKey){
+  const name = document.getElementById(`name-${id}`).value;
+  const moogold_variation_id = document.getElementById(`varid-${id}`).value || null;
+  const price = Number(document.getElementById(`price-${id}`).value);
+  await fetch(`${API_BASE}/admin/products/${id}`, {
+    method:'PUT', headers: headers(), body: JSON.stringify({ name, moogold_variation_id, price })
+  });
+  showToast('✅ Yangilandi');
+}
+
+async function toggleActive(id, active, gameKey){
+  await fetch(`${API_BASE}/admin/products/${id}`, {
+    method:'PUT', headers: headers(), body: JSON.stringify({ active })
+  });
+  await loadProducts();
+  switchTab(`game-${gameKey}`);
+}
+
+async function deletePackage(id, gameKey, btn){
+  if(btn.dataset.confirm !== '1'){
+    btn.dataset.confirm = '1';
+    btn.textContent = 'Ishonchmi?';
+    setTimeout(()=>{ if(btn.dataset.confirm==='1'){ btn.dataset.confirm=''; btn.textContent='✕'; } }, 3000);
+    return;
+  }
+  try{
+    const res = await fetch(`${API_BASE}/admin/products/${id}`, { method:'DELETE', headers: headers() });
+    const data = await res.json();
+    if(!res.ok){ showToast('⚠️ '+data.error); btn.dataset.confirm=''; btn.textContent='✕'; return; }
+    showToast('✅ O\'chirildi');
+    await loadProducts();
+    switchTab(`game-${gameKey}`);
+  }catch(e){
+    showToast('⚠️ Server bilan bog\'lanishda xatolik');
+  }
+}
+
+// ---- NARX SOZLAMALARI ----
+
+async function loadPricingConfig(){
+  const res = await fetch(`${API_BASE}/admin/pricing-config`, { headers: headers() });
+  if(!res.ok) throw new Error('auth');
+  const data = await res.json();
+  document.getElementById('usdRate').value = data.usdRate;
+  document.getElementById('markupType').value = data.markupType;
+  document.getElementById('markupPercent').value = data.markupPercent;
+  currentTiers = (data.tiers || []).map(t=>({ max: t.max, add: t.add }));
+  renderTiers();
+  onMarkupTypeChange();
+}
+
+function onMarkupTypeChange(){
+  const isTiered = document.getElementById('markupType').value === 'tiered';
+  document.getElementById('tiersSection').style.display = isTiered ? 'block' : 'none';
+  document.getElementById('markupPercent').style.display = isTiered ? 'none' : 'block';
+}
+
+function renderTiers(){
+  const box = document.getElementById('tiersList');
+  box.innerHTML = currentTiers.map((t,i)=>{
+    const isLast = i === currentTiers.length-1;
+    return `
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+        <span style="color:var(--muted); font-size:12px; width:16px;">≤</span>
+        ${isLast
+          ? `<input value="cheksiz (undan yuqori hammasi)" disabled style="flex:1; opacity:0.6;">`
+          : `<input type="number" value="${t.max}" placeholder="Narx chegarasi (so'm)" style="flex:1;" onchange="updateTier(${i},'max',this.value)">`}
+        <span style="color:var(--muted); font-size:12px;">+</span>
+        <input type="number" value="${t.add}" placeholder="Qo'shim (so'm)" style="width:110px;" onchange="updateTier(${i},'add',this.value)">
+        ${currentTiers.length>1 ? `<button class="danger" onclick="removeTierRow(${i})" style="padding:9px 12px;">✕</button>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function updateTier(i, field, value){
+  currentTiers[i][field] = Number(value);
+}
+
+function addTierRow(){
+  const last = currentTiers[currentTiers.length-1];
+  const prevMax = currentTiers.length>1 ? currentTiers[currentTiers.length-2].max : 0;
+  currentTiers.splice(currentTiers.length-1, 0, { max: prevMax + 10000, add: last.add });
+  renderTiers();
+}
+
+function removeTierRow(i){
+  currentTiers.splice(i,1);
+  renderTiers();
+}
+
+async function savePricingConfig(){
+  const usdRate = Number(document.getElementById('usdRate').value);
+  const markupType = document.getElementById('markupType').value;
+  const markupPercent = Number(document.getElementById('markupPercent').value);
+  if(!usdRate){ showToast('⚠️ Dollar kursini kiriting'); return; }
+
+  const tiers = currentTiers.map((t,i)=> i===currentTiers.length-1 ? { max: null, add: t.add } : t);
+
+  const res = await fetch(`${API_BASE}/admin/pricing-config`, {
+    method:'POST', headers: headers(),
+    body: JSON.stringify({ usdRate, markupType, markupPercent, tiers })
+  });
+  const data = await res.json();
+  if(!res.ok){ showToast('⚠️ '+data.error); return; }
+  showToast('✅ Narx sozlamasi saqlandi');
+}
+
+async function syncPrices(){
+  const box = document.getElementById('syncResult');
+  box.style.display = 'block';
+  box.textContent = 'Yangilanmoqda...';
+  try{
+    const res = await fetch(`${API_BASE}/admin/products/sync-prices`, { method:'POST', headers: headers() });
+    const data = await res.json();
+    if(!res.ok){ box.textContent = '⚠️ '+data.error; return; }
+    if(!data.updated.length){
+      box.textContent = data.message || 'Hech qanday mahsulot yangilanmadi (Mahsulot ID kiritilmagan)';
+      return;
+    }
+    let text = `✅ ${data.updated.length} ta mahsulot yangilandi:\n\n`;
+    data.updated.forEach(u=>{
+      text += `#${u.id}: ${u.old_price.toLocaleString()} → ${u.new_price.toLocaleString()} so'm (tannarx $${u.cost_usd}, ${u.stock_status})\n`;
+    });
+    if(data.errors && data.errors.length){
+      text += `\n⚠️ Xatoliklar:\n`;
+      data.errors.forEach(e=>{ text += `#${e.id}: ${e.error}\n`; });
+    }
+    box.textContent = text;
+    showToast('✅ Narxlar yangilandi');
+    await loadProducts();
+  }catch(e){
+    box.textContent = '⚠️ Xatolik: '+e.message;
+  }
+}
+
+// ---- 721 PREMIUM ----
+
+async function loadPlans(){
+  const res = await fetch(`${API_BASE}/admin/subscription-plans`, { headers: headers() });
+  if(!res.ok) throw new Error('auth');
+  const plans = await res.json();
+  const box = document.getElementById('premiumPlansList');
+  if(!plans.length){ box.innerHTML = '<p class="empty">Hali obuna rejasi qo\'shilmagan</p>'; return; }
+  box.innerHTML = `<table><tr><th>Muddat</th><th>Narx</th><th>Belgi</th><th>Holat</th><th></th></tr>${
+    plans.map(p=>`
+      <tr>
+        <td><input class="mono" value="${p.days}" id="plan-days-${p.id}" onchange="updatePlan(${p.id})" style="width:60px;"> kun</td>
+        <td><input class="mono" value="${p.price}" id="plan-price-${p.id}" onchange="updatePlan(${p.id})"></td>
+        <td><input value="${p.badge||''}" id="plan-badge-${p.id}" placeholder="—" onchange="updatePlan(${p.id})"></td>
+        <td>${p.active ? '<span class="badge">Faol</span>' : '<span style="color:var(--muted);">O\'chirilgan</span>'}</td>
+        <td class="row-actions">
+          <button class="ghost" onclick="togglePlanActive(${p.id}, ${p.active ? 0 : 1})">${p.active ? 'O\'chirish' : 'Yoqish'}</button>
+          <button class="danger" onclick="deletePlan(${p.id},this)">O'chirish</button>
+        </td>
+      </tr>`).join('')
+  }</table>`;
+}
+
+async function addPlan(){
+  const days = Number(document.getElementById('newPlanDays').value);
+  const price = Number(document.getElementById('newPlanPrice').value);
+  const badge = document.getElementById('newPlanBadge').value;
+  if(!days || !price){ showToast('⚠️ Muddat va narxni kiriting'); return; }
+
+  const res = await fetch(`${API_BASE}/admin/subscription-plans`, {
+    method:'POST', headers: headers(), body: JSON.stringify({ days, price, badge })
+  });
+  const data = await res.json();
+  if(!res.ok){ showToast('⚠️ '+data.error); return; }
+  showToast('✅ Reja qo\'shildi');
+  document.getElementById('newPlanDays').value='';
+  document.getElementById('newPlanPrice').value='';
+  document.getElementById('newPlanBadge').value='';
+  loadPlans();
+}
+
+async function updatePlan(id){
+  const days = Number(document.getElementById(`plan-days-${id}`).value);
+  const price = Number(document.getElementById(`plan-price-${id}`).value);
+  const badge = document.getElementById(`plan-badge-${id}`).value;
+  await fetch(`${API_BASE}/admin/subscription-plans/${id}`, {
+    method:'PUT', headers: headers(), body: JSON.stringify({ days, price, badge })
+  });
+  showToast('✅ Yangilandi');
+}
+
+async function togglePlanActive(id, active){
+  await fetch(`${API_BASE}/admin/subscription-plans/${id}`, {
+    method:'PUT', headers: headers(), body: JSON.stringify({ active })
+  });
+  loadPlans();
+}
+
+async function deletePlan(id, btn){
+  if(btn.dataset.confirm !== '1'){
+    btn.dataset.confirm = '1';
+    btn.textContent = 'Ishonchmi?';
+    setTimeout(()=>{ if(btn.dataset.confirm==='1'){ btn.dataset.confirm=''; btn.textContent='O\'chirish'; } }, 3000);
+    return;
+  }
+  await fetch(`${API_BASE}/admin/subscription-plans/${id}`, { method:'DELETE', headers: headers() });
+  loadPlans();
+}
+
+async function loadDiscount(){
+  const res = await fetch(`${API_BASE}/admin/settings`, { headers: headers() });
+  if(!res.ok) throw new Error('auth');
+  const data = await res.json();
+  document.getElementById('discountPercent').value = data.discount_percent;
+}
+
+async function saveDiscount(){
+  const pct = document.getElementById('discountPercent').value;
+  const res = await fetch(`${API_BASE}/admin/settings`, {
+    method:'POST', headers: headers(), body: JSON.stringify({ discount_percent: pct })
+  });
+  const data = await res.json();
+  if(!res.ok){ showToast('⚠️ '+data.error); return; }
+  showToast('✅ Chegirma foizi saqlandi: '+pct+'%');
+}
+
+// ---- MOOGOLD QIDIRUV ----
+
+async function loadMoogoldProducts(){
+  const categoryId = document.getElementById('categoryId').value || '1';
+  const box = document.getElementById('moogoldResult');
+  box.textContent = 'Yuklanmoqda...';
+  try{
+    const res = await fetch(`${API_BASE}/admin/moogold-products?category_id=${categoryId}`, { headers: headers() });
+    const data = await res.json();
+    if(!res.ok){ box.textContent = '⚠️ Xatolik: '+(data.error||'noma\'lum'); return; }
+    box.textContent = JSON.stringify(data, null, 2);
+  }catch(e){
+    box.textContent = '⚠️ Server bilan bog\'lanishda xatolik: '+e.message;
+  }
+}
+
+async function loadMoogoldProductDetail(){
+  const productId = document.getElementById('productIdSearch').value;
+  if(!productId){ showToast('⚠️ O\'yin ID kiriting'); return; }
+  const box = document.getElementById('moogoldResult');
+  box.textContent = 'Yuklanmoqda...';
+  try{
+    const res = await fetch(`${API_BASE}/admin/moogold-products?product_id=${productId}`, { headers: headers() });
+    const data = await res.json();
+    if(!res.ok){ box.textContent = '⚠️ Xatolik: '+(data.error||'noma\'lum'); return; }
+    box.textContent = JSON.stringify(data, null, 2);
+  }catch(e){
+    box.textContent = '⚠️ Server bilan bog\'lanishda xatolik: '+e.message;
+  }
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none', 2200);
+}
+
+if(adminId){ document.getElementById('adminIdInput').value = adminId; init(); }
+</script>
+</body>
+</html>
