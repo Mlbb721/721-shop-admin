@@ -239,8 +239,13 @@
         <input id="rentPrice12" type="number" placeholder="12 soat narxi (so'm)" style="width:170px;">
         <input id="rentPrice24" type="number" placeholder="24 soat narxi (so'm)" style="width:170px;">
       </div>
-      <div class="add-form" style="align-items:flex-start;">
-        <textarea id="rentImages" placeholder="Rasm havolalari (har birini yangi qatorga, 5 tagacha)" rows="4" style="flex:1; min-width:260px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; color:var(--text); padding:9px 12px; font-size:13px; font-family:'Inter',sans-serif;"></textarea>
+      <div class="add-form" style="align-items:flex-start; flex-direction:column;">
+        <label style="font-size:12.5px; color:var(--muted); margin-bottom:6px;">Rasmlar (telefondan, 5 tagacha)</label>
+        <label class="ghost" style="display:inline-flex; align-items:center; justify-content:center; padding:9px 16px; border-radius:10px; border:1px solid var(--line); cursor:pointer; font-size:13px; font-weight:700; font-family:'Sora',sans-serif;">
+          📷 Rasm tanlash
+          <input type="file" id="rentImagesInput" accept="image/*" multiple onchange="onNewAccountImages(event)" style="display:none;">
+        </label>
+        <div id="rentImagesPreview" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
       </div>
       <button style="margin-top:10px;" onclick="addRentAccount()">＋ Qo'shish</button>
     </div>
@@ -327,9 +332,25 @@ async function loadRentAccounts(){
 function renderRentAccounts(accounts){
   const box = document.getElementById('rentAccountsList');
   if(!accounts.length){ box.innerHTML = '<p class="empty">Hali akkaunt qo\'shilmagan</p>'; return; }
+  rentImagesState = {};
+  accounts.forEach(a=>{ rentImagesState[a.id] = a.images || []; });
 
   box.innerHTML = accounts.map(a => `
     <div style="border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;">
+      <div class="add-form" style="margin-top:0; align-items:flex-start;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="rimgs-${a.id}">
+          ${(a.images||[]).map((src,i)=>`
+            <div style="position:relative;">
+              <img src="${src}" style="width:56px; height:56px; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+              <button onclick="removeExistingImage(${a.id}, ${i})" style="position:absolute; top:-6px; right:-6px; width:18px; height:18px; padding:0; border-radius:50%; background:var(--danger); color:#fff; font-size:10px; line-height:1;">✕</button>
+            </div>
+          `).join('')}
+        </div>
+        <label class="ghost" style="display:inline-flex; align-items:center; justify-content:center; padding:9px 14px; border-radius:10px; border:1px solid var(--line); cursor:pointer; font-size:12.5px; font-weight:700; font-family:'Sora',sans-serif;">
+          📷 ＋
+          <input type="file" accept="image/*" multiple style="display:none;" onchange="onExistingAccountImages(${a.id}, event)">
+        </label>
+      </div>
       <div class="add-form" style="margin-top:0;">
         <input value="${a.label||''}" id="rl-${a.id}" style="width:130px;" onchange="updateRentAccount(${a.id})">
         <input value="${a.rank_badge||''}" id="rr-${a.id}" placeholder="Max Rank" style="width:160px;" onchange="updateRentAccount(${a.id})">
@@ -363,7 +384,7 @@ async function addRentAccount(){
   const price_6h = Number(document.getElementById('rentPrice6').value) || null;
   const price_12h = Number(document.getElementById('rentPrice12').value) || null;
   const price_24h = Number(document.getElementById('rentPrice24').value) || null;
-  const images = document.getElementById('rentImages').value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,5);
+  const images = newAccountImages;
 
   if(!label){ showToast('⚠️ Nomini kiriting'); return; }
 
@@ -374,9 +395,92 @@ async function addRentAccount(){
   const data = await res.json();
   if(!res.ok){ showToast('⚠️ '+data.error); return; }
   showToast('✅ Akkaunt qo\'shildi');
-  ['rentLabel','rentRank','rentHero','rentStar','rentPrice6','rentPrice12','rentPrice24','rentImages'].forEach(id=>{
+  ['rentLabel','rentRank','rentHero','rentStar','rentPrice6','rentPrice12','rentPrice24'].forEach(id=>{
     document.getElementById(id).value='';
   });
+  newAccountImages = [];
+  renderNewAccountPreview();
+  loadRentAccounts();
+}
+
+// ---- RASMLARNI TELEFONDAN YUKLASH (base64'ga siqib o'girish) ----
+
+let newAccountImages = [];
+let rentImagesState = {};
+
+function compressImageFile(file, maxWidth = 800, quality = 0.72){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderNewAccountPreview(){
+  const box = document.getElementById('rentImagesPreview');
+  box.innerHTML = newAccountImages.map((src,i)=>`
+    <div style="position:relative;">
+      <img src="${src}" style="width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+      <button onclick="removeNewAccountImage(${i})" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; padding:0; border-radius:50%; background:var(--danger); color:#fff; font-size:12px; line-height:1;">✕</button>
+    </div>
+  `).join('');
+}
+
+async function onNewAccountImages(e){
+  const room = 5 - newAccountImages.length;
+  const files = Array.from(e.target.files).slice(0, room);
+  for(const file of files){
+    try{ newAccountImages.push(await compressImageFile(file)); }
+    catch(err){ showToast('⚠️ Rasmni yuklashda xatolik'); }
+  }
+  renderNewAccountPreview();
+  e.target.value = '';
+}
+
+function removeNewAccountImage(i){
+  newAccountImages.splice(i,1);
+  renderNewAccountPreview();
+}
+
+async function onExistingAccountImages(id, e){
+  const current = rentImagesState[id] || [];
+  const room = 5 - current.length;
+  const files = Array.from(e.target.files).slice(0, room);
+  for(const file of files){
+    try{ current.push(await compressImageFile(file)); }
+    catch(err){ showToast('⚠️ Rasmni yuklashda xatolik'); }
+  }
+  rentImagesState[id] = current;
+  await persistImages(id);
+}
+
+async function removeExistingImage(id, idx){
+  const current = rentImagesState[id] || [];
+  current.splice(idx,1);
+  rentImagesState[id] = current;
+  await persistImages(id);
+}
+
+async function persistImages(id){
+  await fetch(`${API_BASE}/rent-admin/accounts/${id}`, {
+    method:'PUT', headers: rentHeaders(),
+    body: JSON.stringify({ images: rentImagesState[id] })
+  });
+  showToast('✅ Rasm yangilandi');
   loadRentAccounts();
 }
 
