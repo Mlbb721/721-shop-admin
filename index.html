@@ -98,8 +98,13 @@
 <div id="panel" style="display:none;">
   <div class="topbar">
     <div class="topbar-inner">
-      <h1>721 Shop — Admin panel</h1>
-      <div class="sub">Backend: <span id="apiBaseLabel" class="mono"></span></div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+        <div>
+          <h1>721 Shop — Admin panel</h1>
+          <div class="sub">Backend: <span id="apiBaseLabel" class="mono"></span></div>
+        </div>
+        <button class="ghost" onclick="logout()" style="flex-shrink:0; padding:8px 14px; font-size:12.5px;">‹ Chiqish</button>
+      </div>
       <div class="tabs" id="tabsBar"></div>
     </div>
   </div>
@@ -213,8 +218,13 @@
 <div id="panel-rent" style="display:none;">
   <div class="topbar">
     <div class="topbar-inner">
-      <h1>Akk Rent — Admin panel</h1>
-      <div class="sub">Backend: <span id="apiBaseLabelRent" class="mono"></span></div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+        <div>
+          <h1>Akk Rent — Admin panel</h1>
+          <div class="sub">Backend: <span id="apiBaseLabelRent" class="mono"></span></div>
+        </div>
+        <button class="ghost" onclick="logoutRent()" style="flex-shrink:0; padding:8px 14px; font-size:12.5px;">‹ Chiqish</button>
+      </div>
     </div>
   </div>
 
@@ -275,6 +285,14 @@ function login(){
   init();
 }
 
+function logout(){
+  adminPassword = '';
+  localStorage.removeItem('shopAdminPassword');
+  document.getElementById('adminIdInput').value = '';
+  document.getElementById('panel').style.display = 'none';
+  showGate('shop');
+}
+
 function headers(){
   return { 'Content-Type':'application/json', 'x-admin-password': adminPassword };
 }
@@ -321,6 +339,14 @@ async function loginRent(){
   }catch(e){
     document.getElementById('gateErrorRent').textContent = '⚠️ Server bilan bog\'lanishda xatolik';
   }
+}
+
+function logoutRent(){
+  rentPassword = '';
+  localStorage.removeItem('rentAdminPassword');
+  document.getElementById('rentPasswordInput').value = '';
+  document.getElementById('panel-rent').style.display = 'none';
+  showGate('rent');
 }
 
 async function loadRentAccounts(){
