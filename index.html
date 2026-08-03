@@ -79,8 +79,8 @@
 
 <div id="gate-shop" class="gate card" style="display:none;">
   <h1>721 Shop — Admin</h1>
-  <p style="color:var(--muted); font-size:13px;">Telegram ID'ingizni kiriting</p>
-  <input id="adminIdInput" placeholder="Masalan: 1056541026" class="mono">
+  <p style="color:var(--muted); font-size:13px;">Parolni kiriting</p>
+  <input id="adminIdInput" type="password" placeholder="Parol" class="mono">
   <button onclick="login()">Kirish</button>
   <p id="gateError" style="color:var(--danger); font-size:12px; margin-top:8px;"></p>
   <p style="color:var(--muted); font-size:12px; margin-top:14px; cursor:pointer;" onclick="showGate('chooser')">‹ Orqaga</p>
@@ -256,7 +256,7 @@
 
 <script>
 const API_BASE = 'https://721-shop-production.up.railway.app/api';
-let adminId = localStorage.getItem('adminTgId') || '';
+let adminPassword = localStorage.getItem('shopAdminPassword') || '';
 let rentPassword = localStorage.getItem('rentAdminPassword') || '';
 let currentTiers = [];
 let gamesCache = [];
@@ -270,13 +270,13 @@ function showGate(which){
 function login(){
   const val = document.getElementById('adminIdInput').value.trim();
   if(!val){ return; }
-  adminId = val;
-  localStorage.setItem('adminTgId', val);
+  adminPassword = val;
+  localStorage.setItem('shopAdminPassword', val);
   init();
 }
 
 function headers(){
-  return { 'Content-Type':'application/json', 'x-admin-tg-id': adminId };
+  return { 'Content-Type':'application/json', 'x-admin-password': adminPassword };
 }
 
 async function init(){
@@ -293,7 +293,7 @@ async function init(){
     document.getElementById('panel').style.display = 'block';
     switchTab('users');
   }catch(e){
-    document.getElementById('gateError').textContent = '⚠️ Kirish rad etildi yoki server javob bermadi. ID to\'g\'riligini tekshiring.';
+    document.getElementById('gateError').textContent = '⚠️ Parol noto\'g\'ri yoki server javob bermadi.';
   }
 }
 
@@ -1025,8 +1025,8 @@ function showToast(msg){
   setTimeout(()=>t.style.display='none', 2200);
 }
 
-if(adminId){
-  document.getElementById('adminIdInput').value = adminId;
+if(adminPassword){
+  document.getElementById('adminIdInput').value = adminPassword;
   showGate('shop');
   init();
 } else if(rentPassword){
