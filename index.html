@@ -718,7 +718,16 @@ function buildGameSections(){
         <h2><span class="bar"></span>${g.icon||''} ${g.name}</h2>
         <div id="productsList-${g.key}"></div>
 
-        <div class="add-form">
+        <div style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
+          <p style="font-size:13px; font-weight:700; margin-bottom:8px;">📥 MooGold'dan mahsulot import qilish</p>
+          <div class="add-form" style="margin-top:0;">
+            <input id="importProductId-${g.key}" type="number" placeholder="MooGold mahsulot (o'yin) ID" style="width:220px;">
+            <button class="ghost" onclick="importFromMoogold('${g.key}')">📥 Yuklash</button>
+          </div>
+          <div id="importResults-${g.key}" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="add-form" style="border-top:1px solid var(--line); margin-top:16px; padding-top:14px;">
           <input id="newName-${g.key}" placeholder="Mahsulot nomi (masalan 56 Diamond)" style="flex:1; min-width:200px;">
         </div>
         <div class="add-form">
@@ -745,12 +754,15 @@ function buildGameSections(){
   gamesCache.forEach(g => renderProductsTable(g));
 }
 
+const HIGHLIGHT_COLORS = ['#FF4D4D','#FF8A3D','#FFD93D','#4CD964','#2DD4BF','#22D3EE','#3B82F6','#6366F1','#A855F7','#EC4899','#F43F5E','#F3C75C'];
+let lastImportResults = {};
+
 function renderProductsTable(g){
   const box = document.getElementById(`productsList-${g.key}`);
   if(!box) return;
   if(!g.packages.length){ box.innerHTML = '<p class="empty">Hali mahsulot qo\'shilmagan</p>'; return; }
   box.innerHTML = `<table><tr>
-      <th>Mahsulot nomi</th><th>Mahsulot ID</th><th>Narx (so'm)</th><th>Holat</th><th></th>
+      <th>Mahsulot nomi</th><th>Mahsulot ID</th><th>Narx (so'm)</th><th>Holat</th><th>🎨 Ajratish</th><th></th>
     </tr>${
     g.packages.map(p=>`
       <tr>
@@ -758,12 +770,107 @@ function renderProductsTable(g){
         <td><input class="mono" value="${p.moogold_variation_id||''}" id="varid-${p.id}" placeholder="—" style="width:110px;" onchange="updatePackage(${p.id},'${g.key}')"></td>
         <td><input class="mono" value="${p.price}" id="price-${p.id}" style="width:110px;" onchange="updatePackage(${p.id},'${g.key}')"></td>
         <td>${p.active ? '<span class="badge">Faol</span>' : '<span style="color:var(--muted);">O\'chirilgan</span>'}</td>
+        <td>
+          <div style="display:flex; gap:3px; flex-wrap:wrap; max-width:110px;">
+            ${HIGHLIGHT_COLORS.map(c=>`<span onclick="setHighlight(${p.id},'${g.key}','${c}')" title="${c}" style="width:13px; height:13px; border-radius:50%; background:${c}; cursor:pointer; display:inline-block; border:2px solid ${p.highlight_color===c?'#fff':'transparent'}; box-shadow:0 0 0 1px rgba(255,255,255,.15);"></span>`).join('')}
+            ${p.highlight_color ? `<span onclick="setHighlight(${p.id},'${g.key}',null)" title="Olib tashlash" style="font-size:11px; color:var(--muted); cursor:pointer; margin-left:2px;">✕</span>` : ''}
+          </div>
+        </td>
         <td class="row-actions">
           <button class="ghost" onclick="toggleActive(${p.id},${p.active?0:1},'${g.key}')">${p.active?'O\'chir':'Yoq'}</button>
           <button class="danger" onclick="deletePackage(${p.id},'${g.key}',this)">✕</button>
         </td>
       </tr>`).join('')
   }</table>`;
+}
+
+async function setHighlight(id, gameKey, color){
+  await fetch(`${API_BASE}/admin/products/${id}`, {
+    method:'PUT', headers: headers(), body: JSON.stringify({ highlight_color: color })
+  });
+  await loadProducts();
+  switchTab(`game-${gameKey}`);
+}
+
+async function importFromMoogold(gameKey){
+  const productId = document.getElementById(`importProductId-${gameKey}`).value.trim();
+  const box = document.getElementById(`importResults-${gameKey}`);
+  if(!productId){ showToast('⚠️ MooGold mahsulot ID kiriting'); return; }
+  box.innerHTML = '<p style="color:var(--muted); font-size:12.5px;">Yuklanmoqda...</p>';
+  try{
+    const res = await fetch(`${API_BASE}/admin/moogold-products?product_id=${productId}`, { headers: headers() });
+    const data = await res.json();
+    if(!res.ok){ box.innerHTML = `<p style="color:var(--danger); font-size:12.5px;">⚠️ ${data.error}</p>`; return; }
+
+    const variations = data.Variation || data.variation || [];
+    if(!variations.length){ box.innerHTML = '<p class="empty">Variatsiya topilmadi</p>'; return; }
+
+    lastImportResults[gameKey] = variations;
+    const game = gamesCache.find(g=>g.key===gameKey);
+    const existingVarIds = new Set(game.packages.map(p=>String(p.moogold_variation_id)));
+    const anyNew = variations.some(v=>!existingVarIds.has(String(v.variation_id)));
+
+    box.innerHTML = `<table><tr>
+        <th></th><th>Asl nomi</th><th>ID</th><th>Asl narx ($)</th><th>Holat</th>
+        <th>Ko'rinadigan nomi</th><th>Ko'rinadigan narxi (so'm)</th>
+      </tr>${
+      variations.map((v,i)=>{
+        const already = existingVarIds.has(String(v.variation_id));
+        const origName = v.variation_name || v.name || v.title || ('Variatsiya #'+v.variation_id);
+        return `
+        <tr style="${already?'opacity:.45;':''}">
+          <td>${already
+            ? `<span style="font-size:11px; color:var(--muted);">✅</span>`
+            : `<input type="checkbox" id="imp-chk-${gameKey}-${i}" style="width:auto;">`}</td>
+          <td style="font-size:12.5px;">${origName}</td>
+          <td class="mono" style="font-size:11.5px;">${v.variation_id}</td>
+          <td class="mono" style="font-size:11.5px;">${v.variation_price}</td>
+          <td style="font-size:11px;">${v.stock_status || '—'}</td>
+          <td><input id="imp-name-${gameKey}-${i}" value="${already?'':origName}" ${already?'disabled':''} style="width:150px;"></td>
+          <td><input id="imp-price-${gameKey}-${i}" type="number" placeholder="so'm" ${already?'disabled':''} style="width:110px;"></td>
+        </tr>`;
+      }).join('')
+    }</table>
+    ${anyNew ? `<button style="margin-top:10px;" onclick="addSelectedFromMoogold('${gameKey}')">✅ Tanlanganlarni qo'shish</button>` : '<p class="empty" style="margin-top:8px;">Barcha mahsulotlar allaqachon qo\'shilgan</p>'}
+    `;
+  }catch(e){
+    box.innerHTML = `<p style="color:var(--danger); font-size:12.5px;">⚠️ Server bilan bog'lanishda xatolik</p>`;
+  }
+}
+
+async function addSelectedFromMoogold(gameKey){
+  const variations = lastImportResults[gameKey] || [];
+  const game = gamesCache.find(g=>g.key===gameKey);
+  const existingVarIds = new Set(game.packages.map(p=>String(p.moogold_variation_id)));
+  const productId = document.getElementById(`importProductId-${gameKey}`).value;
+
+  let addedCount = 0;
+  for(let i=0;i<variations.length;i++){
+    const v = variations[i];
+    if(existingVarIds.has(String(v.variation_id))) continue;
+    const chk = document.getElementById(`imp-chk-${gameKey}-${i}`);
+    if(!chk || !chk.checked) continue;
+    const nameEl = document.getElementById(`imp-name-${gameKey}-${i}`);
+    const priceEl = document.getElementById(`imp-price-${gameKey}-${i}`);
+    const name = nameEl.value.trim();
+    const price = Number(priceEl.value);
+    if(!name || !price){ continue; }
+
+    await fetch(`${API_BASE}/admin/products`, {
+      method:'POST', headers: headers(),
+      body: JSON.stringify({
+        game_key: gameKey, name, amount: 0, price,
+        moogold_product_id: productId,
+        moogold_variation_id: v.variation_id,
+        cost_usd: v.variation_price,
+      })
+    });
+    addedCount++;
+  }
+
+  showToast(addedCount ? `✅ ${addedCount} ta mahsulot qo'shildi` : '⚠️ Hech narsa belgilanmagan yoki nomi/narxi to\'ldirilmagan');
+  await loadProducts();
+  switchTab(`game-${gameKey}`);
 }
 
 async function addPackage(gameKey){
